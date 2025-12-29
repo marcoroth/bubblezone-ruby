@@ -1,0 +1,153 @@
+#!/usr/bin/env ruby
+# frozen_string_literal: true
+
+# Clickable list demo - combines Bubbletea, Lipgloss, and Bubblezone
+
+require "bundler/setup"
+require "bubbletea"
+require "lipgloss"
+require "bubblezone"
+
+Bubblezone.new_global
+
+class ClickableList
+  include Bubbletea::Model
+
+  ITEMS = [
+    { id: "item_1", title: "Raspberry Pi's", desc: "I have 'em all over my house" },
+    { id: "item_2", title: "Nutella", desc: "It's good on toast" },
+    { id: "item_3", title: "Bitter melon", desc: "It cools you down" },
+    { id: "item_4", title: "Nice socks", desc: "Socks without holes" },
+    { id: "item_5", title: "Eight hours of sleep", desc: "I had this once" },
+    { id: "item_6", title: "Cats", desc: "Usually" },
+  ].freeze
+
+  def initialize
+    @cursor = 0
+    @selected = nil
+    @last_click = nil
+    @debug_info = ""
+    @render_count = 0
+
+    @title_style = Lipgloss::Style.new.bold(true).foreground("#FAFAFA").background("#7D56F4").padding(0, 1)
+    @item_style = Lipgloss::Style.new.padding_left(4)
+    @selected_style = Lipgloss::Style.new.padding_left(4).foreground("#7D56F4").bold(true)
+    @cursor_style = Lipgloss::Style.new.foreground("#FF75B5")
+    @desc_style = Lipgloss::Style.new.foreground("#666666")
+    @help_style = Lipgloss::Style.new.foreground("#626262")
+    @debug_style = Lipgloss::Style.new.foreground("#888888")
+  end
+
+  def init
+    [self, nil]
+  end
+
+  def update(message)
+    case message
+    when Bubbletea::KeyMessage
+      handle_key(message)
+    when Bubbletea::MouseMessage
+      handle_mouse(message)
+    else
+      [self, nil]
+    end
+  end
+
+  def view
+    @render_count += 1
+    lines = []
+
+    lines << ""
+    lines << @title_style.render("  Click on an item to select it  ")
+    lines << ""
+
+    ITEMS.each_with_index do |item, i|
+      cursor = i == @cursor ? @cursor_style.render("> ") : "  "
+      title = Bubblezone.mark(item[:id], item[:title])
+
+      line = if i == @selected
+               "#{cursor}#{@selected_style.render(title)}"
+             else
+               "#{cursor}#{@item_style.render(title)}"
+             end
+
+      desc = @desc_style.render(" - #{item[:desc]}")
+      lines << "  #{line}#{desc}"
+    end
+
+    lines << ""
+    lines << @help_style.render("  j/k: navigate | click: select | enter: confirm | q: quit")
+
+    if @selected
+      lines << ""
+      lines << @selected_style.render("  Selected: #{ITEMS[@selected][:title]}")
+    end
+
+    if @debug_info != ""
+      lines << ""
+      lines << @debug_style.render("  #{@debug_info}")
+    end
+
+    Bubblezone.scan(lines.join("\n"))
+  end
+
+  private
+
+  def handle_key(message)
+    case message.to_s
+    when "q", "ctrl+c"
+      [self, Bubbletea.quit]
+    when "up", "k"
+      @cursor = (@cursor - 1) % ITEMS.length
+      [self, nil]
+    when "down", "j"
+      @cursor = (@cursor + 1) % ITEMS.length
+      [self, nil]
+    when "enter", " "
+      @selected = @cursor
+      [self, nil]
+    else
+      [self, nil]
+    end
+  end
+
+  def handle_mouse(message)
+    @last_click = { x: message.x, y: message.y, action: message.action, button: message.button }
+
+    return [self, nil] unless message.release?
+    return [self, nil] unless message.left? || message.button.zero?
+
+    found = false
+    zone_info = []
+
+    ITEMS.each_with_index do |item, i|
+      zone = Bubblezone.get(item[:id])
+
+      if zone
+        zone_info << "#{item[:id]}:(#{zone.start_x}-#{zone.end_x},#{zone.start_y})"
+
+        if zone.in_bounds?(message.x, message.y)
+          @cursor = i
+          @selected = i
+          found = true
+          @debug_info = "Clicked #{item[:id]} at (#{message.x},#{message.y})"
+
+          break
+        end
+      else
+        zone_info << "#{item[:id]}:nil"
+      end
+    end
+
+    @debug_info = "Click at (#{message.x},#{message.y}) render=#{@render_count} zones: #{zone_info.first(3).join(", ")}..." unless found
+
+    [self, nil]
+  end
+end
+
+unless Bubbletea.tty?
+  puts "Error: This example requires a TTY."
+  exit 1
+end
+
+Bubbletea.run(ClickableList.new, alt_screen: true, mouse_cell_motion: true)

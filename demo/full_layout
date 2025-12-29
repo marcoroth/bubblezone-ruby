@@ -1,0 +1,363 @@
+#!/usr/bin/env ruby
+# frozen_string_literal: true
+
+# Full interactive layout demo - combines Bubbletea, Lipgloss, and Bubblezone
+# This is an interactive version of lipgloss-ruby/demo/layout
+
+require "bundler/setup"
+require "bubbletea"
+require "lipgloss"
+require "bubblezone"
+
+Bubblezone.new_global
+
+WIDTH = 96
+COLUMN_WIDTH = 30
+
+NORMAL = "#EEEEEE"
+SUBTLE = Lipgloss::AdaptiveColor.new(light: "#D9DCCF", dark: "#383838")
+HIGHLIGHT = Lipgloss::AdaptiveColor.new(light: "#874BFD", dark: "#7D56F4")
+SPECIAL = Lipgloss::AdaptiveColor.new(light: "#43BF6D", dark: "#73F59F")
+
+BASE = Lipgloss::Style.new.foreground(NORMAL)
+DIVIDER = Lipgloss::Style.new.set_string("•").padding(0, 1).foreground(SUBTLE).to_s
+
+def url(text)
+  Lipgloss::Style.new.foreground(SPECIAL).render(text)
+end
+
+ACTIVE_TAB_BORDER = {
+  top: "─", bottom: " ", left: "│", right: "│",
+  top_left: "╭", top_right: "╮", bottom_left: "┘", bottom_right: "└"
+}.freeze
+
+TAB_BORDER = {
+  top: "─", bottom: "─", left: "│", right: "│",
+  top_left: "╭", top_right: "╮", bottom_left: "┴", bottom_right: "┴"
+}.freeze
+
+TAB = Lipgloss::Style.new.border_custom(**TAB_BORDER).border_foreground(HIGHLIGHT).padding(0, 1)
+ACTIVE_TAB = Lipgloss::Style.new.border_custom(**ACTIVE_TAB_BORDER).border_foreground(HIGHLIGHT).padding(0, 1)
+TAB_GAP = TAB.border_top(false).border_left(false).border_right(false)
+
+TITLE_STYLE = Lipgloss::Style.new.margin_left(1).margin_right(5).padding(0, 1).italic(true).foreground("#FFF7DB").set_string("Lip Gloss")
+DESC_STYLE = BASE.margin_top(1)
+INFO_STYLE = BASE.border(:normal, true, false, false, false).border_foreground(SUBTLE)
+
+DIALOG_BOX_STYLE = Lipgloss::Style.new.border(:rounded).border_foreground("#874BFD").padding(1, 0)
+BUTTON_STYLE = Lipgloss::Style.new.foreground("#FFF7DB").background("#888B7E").padding(0, 3).margin_top(1)
+ACTIVE_BUTTON_STYLE = Lipgloss::Style.new.foreground("#FFF7DB").background("#F25D94").padding(0, 3).margin_top(1).underline(true)
+
+LIST = Lipgloss::Style.new.border(:normal, false, true, false, false).border_foreground(SUBTLE).margin_right(2).height(8).width(COLUMN_WIDTH + 1)
+CHECK_MARK = Lipgloss::Style.new.set_string("✓").foreground(SPECIAL).padding_right(1).to_s
+
+HISTORY_STYLE = Lipgloss::Style.new.align_horizontal(:left).foreground("#FAFAFA").background(HIGHLIGHT).margin(1, 3, 0, 0).padding(1, 2).height(19).width(COLUMN_WIDTH)
+HISTORY_SELECTED_STYLE = Lipgloss::Style.new.align_horizontal(:left).foreground("#FAFAFA").background("#F25D94").margin(1, 3, 0, 0).padding(1, 2).height(19).width(COLUMN_WIDTH)
+
+STATUS_NUGGET = Lipgloss::Style.new.foreground("#FFFDF5").padding(0, 1)
+STATUS_BAR_STYLE = Lipgloss::Style.new.foreground(Lipgloss::AdaptiveColor.new(light: "#343433", dark: "#C1C6B2")).background(Lipgloss::AdaptiveColor.new(light: "#D9DCCF", dark: "#353533"))
+STATUS_STYLE = Lipgloss::Style.new.inherit(STATUS_BAR_STYLE).foreground("#FFFDF5").background("#FF5F87").padding(0, 1).margin_right(1)
+ENCODING_STYLE = Lipgloss::Style.new.foreground("#FFFDF5").background("#A550DF").padding(0, 1).align_horizontal(:right)
+STATUS_TEXT = Lipgloss::Style.new.inherit(STATUS_BAR_STYLE)
+FISH_CAKE_STYLE = Lipgloss::Style.new.foreground("#FFFDF5").background("#6124DF").padding(0, 1)
+
+DOC_STYLE = Lipgloss::Style.new.padding(1, 2, 1, 2)
+
+def color_grid(x_steps, y_steps)
+  Lipgloss::ColorBlend.grid("#F25D94", "#EDFF82", "#643AFF", "#14F9D5", x_steps, y_steps)
+end
+
+RAINBOW_COLORS = Lipgloss::ColorBlend.blends("#F25D94", "#EDFF82", 50)
+
+def rainbow(text)
+  text.each_char.with_index.map do |char, i|
+    Lipgloss::Style.new.foreground(RAINBOW_COLORS[i % RAINBOW_COLORS.length]).render(char)
+  end.join
+end
+
+class FullLayoutDemo
+  include Bubbletea::Model
+
+  TABS = ["Lip Gloss", "Blush", "Eye Shadow", "Mascara", "Foundation"].freeze
+
+  LIST1_ITEMS = [
+    { name: "Grapefruit", done: true },
+    { name: "Yuzu", done: true },
+    { name: "Citron", done: false },
+    { name: "Kumquat", done: false },
+    { name: "Pomelo", done: false },
+  ].freeze
+
+  LIST2_ITEMS = [
+    { name: "Glossier", done: false },
+    { name: "Claire's Boutique", done: false },
+    { name: "Nyx", done: true },
+    { name: "Mac", done: false },
+    { name: "Milk", done: true },
+  ].freeze
+
+  HISTORY_TEXTS = [
+    "The Romans learned from the Greeks that quinces slowly cooked with honey would \"set\" when cool. The Apicius gives a recipe for preserving whole quinces, stems and leaves attached, in a bath of honey diluted with defrutum: Roman marmalade. Preserves of quince and lemon appear (along with rose, apple, plum and pear) in the Book of ceremonies of the Byzantine Emperor Constantine VII Porphyrogennetos.",
+    "Medieval quince preserves, which went by the French name cotignac, produced in a clear version and a fruit pulp version, began to lose their medieval seasoning of spices in the 16th century. In the 17th century, La Varenne provided recipes for both thick and clear cotignac.",
+    "In 1524, Henry VIII, King of England, received a \"box of marmalade\" from Mr. Hull of Exeter. This was probably marmelada, a solid quince paste from Portugal, still made and sold in southern Europe today. It became a favourite treat of Anne Boleyn and her ladies in waiting.",
+  ].freeze
+
+  def initialize
+    @width = WIDTH
+    @height = 50
+    @active_tab = 0
+    @dialog_button = "yes"
+    @selected_history = 0
+
+    @list1 = LIST1_ITEMS.map(&:dup)
+    @list2 = LIST2_ITEMS.map(&:dup)
+
+    @tab_prefix = Bubblezone.new_prefix
+    @button_prefix = Bubblezone.new_prefix
+    @list1_prefix = Bubblezone.new_prefix
+    @list2_prefix = Bubblezone.new_prefix
+    @history_prefix = Bubblezone.new_prefix
+  end
+
+  def init
+    [self, nil]
+  end
+
+  def update(message)
+    case message
+    when Bubbletea::KeyMessage
+      handle_key(message)
+    when Bubbletea::MouseMessage
+      handle_mouse(message)
+    when Bubbletea::WindowSizeMessage
+      @width = message.width
+      @height = message.height
+
+      [self, nil]
+    else
+      [self, nil]
+    end
+  end
+
+  def view
+    return "" if @width.zero? || @height.zero?
+
+    doc = String.new
+
+    doc << render_tabs << "\n\n"
+    doc << render_title << "\n\n"
+    doc << render_dialog << "\n\n"
+    doc << render_lists_and_colors << "\n"
+    doc << render_history << "\n\n"
+    doc << render_status_bar
+
+    doc << "\n\n"
+    doc << Lipgloss::Style.new.foreground("#626262").render("  Click: tabs, buttons, list items, history panels • Keyboard: tab, arrows, space • q: quit")
+
+    final_style = if @width.positive?
+                    DOC_STYLE.max_width(@width)
+                  else
+                    DOC_STYLE
+                  end
+
+    Bubblezone.scan(final_style.render(doc))
+  end
+
+  private
+
+  def render_tabs
+    tabs = TABS.map.with_index do |name, i|
+      style = i == @active_tab ? ACTIVE_TAB : TAB
+
+      Bubblezone.mark("#{@tab_prefix}#{i}", style.render(name))
+    end
+
+    row = Lipgloss.join_horizontal(:top, *tabs)
+    gap = TAB_GAP.render(" " * [0, WIDTH - Lipgloss.width(row) - 2].max)
+    Lipgloss.join_horizontal(:bottom, row, gap)
+  end
+
+  def render_title
+    colors = color_grid(1, 5)
+
+    title_parts = colors.map.with_index do |color_row, i|
+      offset = 2
+      TITLE_STYLE.margin_left(i * offset).background(color_row[0]).to_s
+    end
+
+    title = title_parts.join("\n")
+
+    desc = Lipgloss.join_vertical(
+      :left,
+      DESC_STYLE.render("Style Definitions for Nice Terminal Layouts"),
+      INFO_STYLE.render("From Charm#{DIVIDER}#{url("https://github.com/charmbracelet/lipgloss")}")
+    )
+
+    Lipgloss.join_horizontal(:top, title, desc)
+  end
+
+  def render_dialog
+    yes_style = @dialog_button == "yes" ? ACTIVE_BUTTON_STYLE : BUTTON_STYLE
+    no_style = @dialog_button == "no" ? ACTIVE_BUTTON_STYLE : BUTTON_STYLE
+
+    ok_button = Bubblezone.mark("#{@button_prefix}yes", yes_style.render("Yes"))
+    cancel_button = Bubblezone.mark("#{@button_prefix}no", no_style.render("Maybe"))
+
+    question = Lipgloss::Style.new.width(50).align_horizontal(:center).render(rainbow("Are you sure you want to eat marmalade?"))
+    buttons = Lipgloss.join_horizontal(:top, ok_button, "  ", cancel_button)
+    ui = Lipgloss.join_vertical(:center, question, buttons)
+
+    Lipgloss.place(WIDTH, 9, :center, :center, DIALOG_BOX_STYLE.render(ui), whitespace_chars: "猫咪", whitespace_foreground: SUBTLE)
+  end
+
+  def render_lists_and_colors
+    list1 = render_list("Citrus Fruits to Try", @list1, @list1_prefix)
+    list2 = render_list("Actual Lip Gloss Vendors", @list2, @list2_prefix)
+
+    lists = Lipgloss.join_horizontal(
+      :top,
+      LIST.render(list1),
+      LIST.width(COLUMN_WIDTH).render(list2)
+    )
+
+    color_display = color_grid(14, 8).map do |row|
+      row.map { |color| Lipgloss::Style.new.set_string("  ").background(color).to_s }.join
+    end.join("\n")
+
+    Lipgloss.join_horizontal(:top, lists, color_display)
+  end
+
+  def render_list(title, items, prefix)
+    header = BASE.border(:normal, false, false, true, false).border_foreground(SUBTLE).margin_right(2).render(title)
+
+    lines = [header]
+
+    items.each_with_index do |item, i|
+      styled = if item[:done]
+                 CHECK_MARK + Lipgloss::Style.new.strikethrough(true).foreground(Lipgloss::AdaptiveColor.new(light: "#969B86", dark: "#696969")).render(item[:name])
+               else
+                 BASE.padding_left(2).render(item[:name])
+               end
+
+      lines << Bubblezone.mark("#{prefix}#{i}", styled)
+    end
+
+    Lipgloss.join_vertical(:left, *lines)
+  end
+
+  def render_history
+    panels = HISTORY_TEXTS.map.with_index do |text, i|
+      style = i == @selected_history ? HISTORY_SELECTED_STYLE : HISTORY_STYLE
+
+      align = case i
+              when 0 then :right
+              when 1 then :center
+              else :left
+              end
+
+      style = style.margin_right(0) if i == 2
+
+      Bubblezone.mark("#{@history_prefix}#{i}", style.align_horizontal(align).render(text))
+    end
+
+    Lipgloss.join_horizontal(:top, *panels)
+  end
+
+  def render_status_bar
+    status_key = STATUS_STYLE.render("STATUS")
+    encoding = ENCODING_STYLE.render("UTF-8")
+    fish_cake = FISH_CAKE_STYLE.render("🍥 Fish Cake")
+    status_val = STATUS_TEXT.width(WIDTH - Lipgloss.width(status_key) - Lipgloss.width(encoding) - Lipgloss.width(fish_cake)).render("Ravishing")
+
+    bar = Lipgloss.join_horizontal(:top, status_key, status_val, encoding, fish_cake)
+    STATUS_BAR_STYLE.width(WIDTH).render(bar)
+  end
+
+  def handle_key(message)
+    case message.to_s
+    when "q", "ctrl+c"
+      [self, Bubbletea.quit]
+    when "tab"
+      @active_tab = (@active_tab + 1) % TABS.length
+      [self, nil]
+    when "shift+tab"
+      @active_tab = (@active_tab - 1) % TABS.length
+      [self, nil]
+    when "left"
+      @dialog_button = "yes"
+      [self, nil]
+    when "right"
+      @dialog_button = "no"
+      [self, nil]
+    when "1"
+      @selected_history = 0
+      [self, nil]
+    when "2"
+      @selected_history = 1
+      [self, nil]
+    when "3"
+      @selected_history = 2
+      [self, nil]
+    else
+      [self, nil]
+    end
+  end
+
+  def handle_mouse(message)
+    return [self, nil] unless message.release?
+    return [self, nil] unless message.left? || message.button.zero?
+
+    TABS.each_index do |i|
+      zone = Bubblezone.get("#{@tab_prefix}#{i}")
+
+      if zone&.in_bounds?(message.x, message.y)
+        @active_tab = i
+        return [self, nil]
+      end
+    end
+
+    ["yes", "no"].each do |btn|
+      zone = Bubblezone.get("#{@button_prefix}#{btn}")
+      if zone&.in_bounds?(message.x, message.y)
+        @dialog_button = btn
+        return [self, nil]
+      end
+    end
+
+    @list1.each_with_index do |item, i|
+      zone = Bubblezone.get("#{@list1_prefix}#{i}")
+
+      if zone&.in_bounds?(message.x, message.y)
+        item[:done] = !item[:done]
+        return [self, nil]
+      end
+    end
+
+    @list2.each_with_index do |item, i|
+      zone = Bubblezone.get("#{@list2_prefix}#{i}")
+
+      if zone&.in_bounds?(message.x, message.y)
+        item[:done] = !item[:done]
+        return [self, nil]
+      end
+    end
+
+    3.times do |i|
+      zone = Bubblezone.get("#{@history_prefix}#{i}")
+
+      if zone&.in_bounds?(message.x, message.y)
+        @selected_history = i
+        return [self, nil]
+      end
+    end
+
+    [self, nil]
+  end
+end
+
+unless Bubbletea.tty?
+  puts "Error: This example requires a TTY."
+  exit 1
+end
+
+Bubbletea.run(FullLayoutDemo.new, alt_screen: true, mouse_cell_motion: true)

@@ -1,0 +1,3 @@
+module Bubblezone
+  VERSION: String
+end

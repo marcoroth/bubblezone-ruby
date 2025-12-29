@@ -1,0 +1,61 @@
+#!/usr/bin/env ruby
+# frozen_string_literal: true
+
+# Test alt_screen with bubblezone
+
+require "bundler/setup"
+require "bubbletea"
+require "bubblezone"
+
+Bubblezone.new_global
+
+class AltScreenTest
+  include Bubbletea::Model
+
+  def initialize
+    @debug = "Move mouse or press keys"
+  end
+
+  def init
+    [self, nil]
+  end
+
+  def update(message)
+    case message
+    when Bubbletea::KeyMessage
+      return [self, Bubbletea.quit] if message.to_s == "q"
+
+      @debug = "Key: #{message}"
+    when Bubbletea::MouseMessage
+      @debug = "Mouse: (#{message.x},#{message.y})"
+    end
+
+    [self, nil]
+  end
+
+  def view
+    button = Bubblezone.mark("btn", "[CLICK ME]")
+    lines = []
+
+    lines << "Alt Screen Test (q to quit)"
+    lines << ""
+    lines << "  #{button}"
+    lines << ""
+    lines << "  #{@debug}"
+
+    zone = Bubblezone.get("btn")
+
+    lines << "  Zone: (#{zone.start_x}-#{zone.end_x}, #{zone.start_y})" if zone
+
+    lines << ""
+
+    Bubblezone.scan(lines.join("\n"))
+  end
+end
+
+unless Bubbletea.tty?
+  puts "Error: Requires TTY"
+  exit 1
+end
+
+Bubbletea.run(AltScreenTest.new, alt_screen: true, mouse_cell_motion: true)

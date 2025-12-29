@@ -1,0 +1,58 @@
+#!/usr/bin/env ruby
+# frozen_string_literal: true
+
+# Mouse test WITHOUT bubblezone.scan in view
+
+require "bundler/setup"
+require "bubbletea"
+
+class MouseNoZone
+  include Bubbletea::Model
+
+  def initialize
+    @events = []
+  end
+
+  def init
+    [self, nil]
+  end
+
+  def update(message)
+    case message
+    when Bubbletea::KeyMessage
+      return [self, Bubbletea.quit] if message.to_s == "q"
+
+      @events.unshift("Key: #{message}")
+      @events = @events.first(5)
+
+    when Bubbletea::MouseMessage
+      @events.unshift("Mouse: (#{message.x},#{message.y}) btn=#{message.button} act=#{message.action}")
+      @events = @events.first(5)
+
+    end
+    [self, nil]
+  end
+
+  def view
+    lines = []
+
+    lines << ""
+    lines << "  Mouse Test WITHOUT bubblezone (press 'q' to quit)"
+    lines << ""
+    lines << "  [  CLICK ME  ]"
+    lines << ""
+    lines << "  Events:"
+
+    @events.each { |e| lines << "    #{e}" }
+
+    lines << ""
+    lines.join("\n")
+  end
+end
+
+unless Bubbletea.tty?
+  puts "Error: This example requires a TTY."
+  exit 1
+end
+
+Bubbletea.run(MouseNoZone.new, mouse_cell_motion: true)

@@ -1,0 +1,73 @@
+#!/usr/bin/env ruby
+# frozen_string_literal: true
+
+# Basic bubblezone demo - shows zone marking and scanning
+
+require "bundler/setup"
+require "bubblezone"
+
+puts "Bubblezone Basic Demo"
+puts "=" * 40
+puts
+
+Bubblezone.new_global
+
+button1 = Bubblezone.mark("btn1", "[  OK  ]")
+button2 = Bubblezone.mark("btn2", "[Cancel]")
+link = Bubblezone.mark("link", "Click here")
+
+ui = <<~UI
+  Welcome to the demo!
+
+  #{button1}  #{button2}
+
+  For more info: #{link}
+UI
+
+puts "Raw output (with ANSI markers):"
+puts ui.inspect
+puts
+
+scanned = Bubblezone.scan(ui)
+
+puts "Scanned output (markers stripped):"
+puts scanned
+puts
+
+sleep 0.02
+
+puts "Zone information:"
+puts "-" * 40
+
+["btn1", "btn2", "link"].each do |id|
+  zone = Bubblezone.get(id)
+  if zone
+    puts "  #{id}:"
+    puts "    bounds: (#{zone.start_x}, #{zone.start_y}) to (#{zone.end_x}, #{zone.end_y})"
+    puts "    size: #{zone.width}x#{zone.height}"
+  else
+    puts "  #{id}: not found"
+  end
+end
+
+puts
+puts "Testing in_bounds?:"
+puts "-" * 40
+
+test_coords = [[0, 2], [3, 2], [10, 2], [20, 4]]
+
+test_coords.each do |(x, y)|
+  matches = ["btn1", "btn2", "link"].select do |id|
+    zone = Bubblezone.get(id)
+    zone&.in_bounds?(x, y)
+  end
+
+  if matches.empty?
+    puts "  (#{x}, #{y}): no zone"
+  else
+    puts "  (#{x}, #{y}): #{matches.join(", ")}"
+  end
+end
+
+puts
+puts "Done!"

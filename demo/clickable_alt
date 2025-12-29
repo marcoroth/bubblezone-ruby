@@ -1,0 +1,110 @@
+#!/usr/bin/env ruby
+# frozen_string_literal: true
+
+# Clickable list with alt_screen (proper coordinate handling)
+
+require "bundler/setup"
+require "bubbletea"
+require "bubblezone"
+
+Bubblezone.new_global
+
+class ClickableAlt
+  include Bubbletea::Model
+
+  ITEMS = [
+    { id: "item_1", title: "Raspberry Pi's" },
+    { id: "item_2", title: "Nutella" },
+    { id: "item_3", title: "Cats" },
+    { id: "item_4", title: "Coffee" },
+    { id: "item_5", title: "Linux" },
+  ].freeze
+
+  def initialize
+    @cursor = 0
+    @selected = nil
+    @debug = ""
+  end
+
+  def init
+    [self, nil]
+  end
+
+  def update(message)
+    case message
+    when Bubbletea::KeyMessage
+      case message.to_s
+      when "q", "ctrl+c"
+        [self, Bubbletea.quit]
+      when "up", "k"
+        @cursor = (@cursor - 1) % ITEMS.length
+        [self, nil]
+      when "down", "j"
+        @cursor = (@cursor + 1) % ITEMS.length
+        [self, nil]
+      when "enter", " "
+        @selected = @cursor
+        [self, nil]
+      else
+        [self, nil]
+      end
+
+    when Bubbletea::MouseMessage
+      @debug = "Mouse: (#{message.x},#{message.y}) btn=#{message.button} act=#{message.action}"
+
+      if message.release? && (message.left? || message.button.zero?)
+        found = Bubblezone.find_in_bounds(message.x, message.y)
+
+        if found
+          id, = found
+          i = ITEMS.index { |item| item[:id] == id }
+
+          if i
+            @cursor = i
+            @selected = i
+            @debug = "HIT: #{ITEMS[i][:title]} at (#{message.x},#{message.y})"
+          end
+        else
+          @debug = "MISS at (#{message.x},#{message.y})"
+        end
+      end
+
+      [self, nil]
+    else
+      [self, nil]
+    end
+  end
+
+  def view
+    lines = []
+    lines << "Clickable List (click items, j/k move, q quit)"
+    lines << ""
+
+    ITEMS.each_with_index do |item, i|
+      cursor = i == @cursor ? "> " : "  "
+      check = i == @selected ? "[x]" : "[ ]"
+      line_content = "#{cursor}#{check} #{item[:title]}"
+
+      lines << Bubblezone.mark(item[:id], line_content)
+    end
+
+    lines << ""
+    lines << @debug
+
+    zone_info = ITEMS.map do |item|
+      z = Bubblezone.get(item[:id])
+      z ? "#{item[:id]}:(#{z.start_x}-#{z.end_x},#{z.start_y})" : "#{item[:id]}:nil"
+    end
+
+    lines << zone_info.join(" ")
+
+    Bubblezone.scan(lines.join("\n"))
+  end
+end
+
+unless Bubbletea.tty?
+  puts "Error: Requires TTY"
+  exit 1
+end
+
+Bubbletea.run(ClickableAlt.new, alt_screen: true, mouse_cell_motion: true)

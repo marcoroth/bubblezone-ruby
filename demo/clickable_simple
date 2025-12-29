@@ -1,0 +1,111 @@
+#!/usr/bin/env ruby
+# frozen_string_literal: true
+
+# Simple clickable list - NO lipgloss, just bubblezone + bubbletea
+
+require "bundler/setup"
+require "bubbletea"
+require "bubblezone"
+
+Bubblezone.new_global
+
+class ClickableSimple
+  include Bubbletea::Model
+
+  ITEMS = [
+    { id: "item_1", title: "Raspberry Pi's" },
+    { id: "item_2", title: "Nutella" },
+    { id: "item_3", title: "Cats" },
+    { id: "item_4", title: "Coffee" },
+    { id: "item_5", title: "Linux" },
+  ].freeze
+
+  def initialize
+    @cursor = 0
+    @selected = nil
+    @debug = ""
+  end
+
+  def init
+    [self, nil]
+  end
+
+  def update(message)
+    case message
+    when Bubbletea::KeyMessage
+      case message.to_s
+      when "q", "ctrl+c"
+        [self, Bubbletea.quit]
+      when "up", "k"
+        @cursor = (@cursor - 1) % ITEMS.length
+        [self, nil]
+      when "down", "j"
+        @cursor = (@cursor + 1) % ITEMS.length
+        [self, nil]
+      when "enter", " "
+        @selected = @cursor
+        [self, nil]
+      else
+        [self, nil]
+      end
+
+    when Bubbletea::MouseMessage
+      @debug = "Mouse: (#{message.x},#{message.y}) btn=#{message.button} act=#{message.action}"
+
+      if message.release? && (message.left? || message.button.zero?)
+        ITEMS.each_with_index do |item, i|
+          zone = Bubblezone.get(item[:id])
+
+          next unless zone&.in_bounds?(message.x, message.y)
+
+          @cursor = i
+          @selected = i
+          @debug = "HIT #{item[:title]} at (#{message.x},#{message.y})"
+          break
+        end
+      end
+
+      [self, nil]
+    else
+      [self, nil]
+    end
+  end
+
+  def view
+    lines = []
+    lines << ""
+    lines << "  Clickable List (click items, j/k to move, q to quit)"
+    lines << ""
+
+    ITEMS.each_with_index do |item, i|
+      cursor = i == @cursor ? "> " : "  "
+      check = i == @selected ? "[x]" : "[ ]"
+
+      title = Bubblezone.mark(item[:id], item[:title])
+
+      lines << "  #{cursor}#{check} #{title}"
+    end
+
+    lines << ""
+    lines << "  #{@debug}" if @debug != ""
+
+    zone = Bubblezone.get("item_1")
+
+    lines << if zone
+               "  Zone item_1: (#{zone.start_x}-#{zone.end_x}, #{zone.start_y})"
+             else
+               "  Zone item_1: not found yet"
+             end
+
+    lines << ""
+
+    Bubblezone.scan(lines.join("\n"))
+  end
+end
+
+unless Bubbletea.tty?
+  puts "Error: Requires TTY"
+  exit 1
+end
+
+Bubbletea.run(ClickableSimple.new, alt_screen: true, mouse_cell_motion: true)

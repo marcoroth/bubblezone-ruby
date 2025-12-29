@@ -1,0 +1,71 @@
+#!/usr/bin/env ruby
+# frozen_string_literal: true
+
+# Minimal mouse test - check if mouse works with bubblezone loaded
+
+require "bundler/setup"
+require "bubbletea"
+require "bubblezone"
+
+Bubblezone.new_global
+
+class MouseTest
+  include Bubbletea::Model
+
+  def initialize
+    @events = []
+    @zone_test = nil
+  end
+
+  def init
+    [self, nil]
+  end
+
+  def update(message)
+    case message
+    when Bubbletea::KeyMessage
+      return [self, Bubbletea.quit] if message.to_s == "q"
+
+      @events.unshift("Key: #{message}")
+      @events = @events.first(5)
+
+    when Bubbletea::MouseMessage
+      @events.unshift("Mouse: (#{message.x},#{message.y}) btn=#{message.button} act=#{message.action}")
+      @events = @events.first(5)
+
+      if message.release? && message.left?
+        zone = Bubblezone.get("button")
+        @zone_test = zone ? "Zone found: #{zone.in_bounds?(message.x, message.y)}" : "Zone not found"
+      end
+    end
+
+    [self, nil]
+  end
+
+  def view
+    button = Bubblezone.mark("button", "[  CLICK ME  ]")
+    lines = []
+
+    lines << ""
+    lines << "  Mouse Test (press 'q' to quit)"
+    lines << ""
+    lines << "  #{button}"
+    lines << ""
+    lines << "  Events:"
+
+    @events.each { |e| lines << "    #{e}" }
+
+    lines << ""
+    lines << "  Zone test: #{@zone_test}" if @zone_test
+    lines << ""
+
+    Bubblezone.scan(lines.join("\n"))
+  end
+end
+
+unless Bubbletea.tty?
+  puts "Error: This example requires a TTY."
+  exit 1
+end
+
+Bubbletea.run(MouseTest.new, mouse_cell_motion: true)
