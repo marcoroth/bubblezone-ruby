@@ -189,8 +189,8 @@ class FullLayoutDemo
 
     desc = Lipgloss.join_vertical(
       :left,
-      DESC_STYLE.render("Style Definitions for Nice Terminal Layouts"),
-      INFO_STYLE.render("From Charm#{DIVIDER}#{url("https://github.com/charmbracelet/lipgloss")}")
+      DESC_STYLE.render("Easy Mouse Event Tracking in Terminal Applications"),
+      INFO_STYLE.render("From @marcoroth#{DIVIDER}#{url("https://github.com/marcoroth/bubblezone-ruby")}")
     )
 
     Lipgloss.join_horizontal(:top, title, desc)
