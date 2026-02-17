@@ -1,7 +1,7 @@
 PATH
   remote: .
   specs:
-    bubblezone (0.1.0)
+    bubblezone (0.1.1)
       rake-compiler (~> 1.2)
 
 GEM
