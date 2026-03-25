@@ -34,6 +34,4 @@ Gem::Specification.new do |spec|
   spec.require_paths = ["lib"]
 
   spec.extensions = ["ext/bubblezone/extconf.rb"]
-
-  spec.add_dependency "rake-compiler", "~> 1.2"
 end
