@@ -1,7 +1,14 @@
 # frozen_string_literal: true
 
 require_relative "bubblezone/version"
-require_relative "bubblezone/bubblezone"
+
+begin
+  major, minor, _patch = RUBY_VERSION.split(".") #: [String, String, String]
+  require_relative "bubblezone/#{major}.#{minor}/bubblezone"
+rescue LoadError
+  require_relative "bubblezone/bubblezone"
+end
+
 require_relative "bubblezone/manager"
 require_relative "bubblezone/zone_info"
 
